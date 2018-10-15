@@ -28,7 +28,7 @@ from subtitles import *
 
 # setup main options
 VERSION = "1.8.0"
-SDK_REVISION = '621'
+SDK_REVISION = '627'
 SCRIPT_PATH = path.abspath(path.dirname(__file__))
 sys.path += [SCRIPT_PATH]
 
@@ -93,6 +93,7 @@ HIPPO_MEDIA_SEGMENT_GROUPS_SMOOTH  = '["time"]'
 
 MPEG_DASH_AUDIO_CHANNEL_CONFIGURATION_SCHEME_ID_URI     = 'urn:mpeg:dash:23003:3:audio_channel_configuration:2011'
 DOLBY_DIGITAL_AUDIO_CHANNEL_CONFIGURATION_SCHEME_ID_URI = 'tag:dolby.com,2014:dash:audio_channel_configuration:2011'
+DOLBY_AC4_AUDIO_CHANNEL_CONFIGURATION_SCHEME_ID_URI     = 'tag:dolby.com,2015:dash:audio_channel_configuration:2015'
 
 ISOFF_MAIN_PROFILE          = 'urn:mpeg:dash:profile:isoff-main:2011'
 ISOFF_LIVE_PROFILE          = 'urn:mpeg:dash:profile:isoff-live:2011'
@@ -372,14 +373,10 @@ def OutputDash(options, set_attributes, audio_sets, video_sets, subtitles_sets, 
         period.append(xml.Comment(' Video '))
 
         for video_tracks in video_sets.values():
-            # compute the min and max values
-            minWidth  = 0
-            minHeight = 0
+            # compute the max values
             maxWidth  = 0
             maxHeight = 0
             for video_track in video_tracks:
-                if minWidth  == 0 or video_track.width < minWidth:  minWidth  = video_track.width
-                if minHeight == 0 or video_track.width < minHeight: minHeight = video_track.height
                 if video_track.width  > maxWidth:  maxWidth  = video_track.width
                 if video_track.height > maxHeight: maxHeight = video_track.height
 
@@ -388,9 +385,7 @@ def OutputDash(options, set_attributes, audio_sets, video_sets, subtitles_sets, 
                                             mimeType=VIDEO_MIMETYPE,
                                             segmentAlignment='true',
                                             startWithSAP='1',
-                                            minWidth=str(minWidth),
                                             maxWidth=str(maxWidth),
-                                            minHeight=str(minHeight),
                                             maxHeight=str(maxHeight))
 
             # see if we have descriptors
@@ -471,6 +466,9 @@ def OutputDash(options, set_attributes, audio_sets, video_sets, subtitles_sets, 
                 if audio_track.codec == 'ec-3':
                     audio_channel_config_value = ComputeDolbyDigitalAudioChannelConfig(audio_track)
                     scheme_id_uri = DOLBY_DIGITAL_AUDIO_CHANNEL_CONFIGURATION_SCHEME_ID_URI
+                elif audio_track.codec.startswith('ac-4'):
+                    audio_channel_config_value = ComputeDolbyAc4AudioChannelConfig(audio_track)
+                    scheme_id_uri = DOLBY_AC4_AUDIO_CHANNEL_CONFIGURATION_SCHEME_ID_URI
                 else:
                     audio_channel_config_value = str(audio_track.channels)
                     scheme_id_uri = MPEG_DASH_AUDIO_CHANNEL_CONFIGURATION_SCHEME_ID_URI
@@ -599,7 +597,7 @@ def ComputeHlsFairplayKeyLine(options):
 def OutputHlsCommon(options, track, media_subdir, playlist_name, media_file_name):
     hls_target_duration = math.ceil(max(track.segment_durations))
 
-    playlist_file = open(path.join(options.output_dir, media_subdir, playlist_name), 'w+')
+    playlist_file = open(path.join(options.output_dir, media_subdir, playlist_name), 'wb+')
     playlist_file.write('#EXTM3U\r\n')
     playlist_file.write('# Created with Bento4 mp4-dash.py, VERSION=' + VERSION + '-' + SDK_REVISION+'\r\n')
     playlist_file.write('#\r\n')
@@ -697,7 +695,7 @@ def OutputHls(options, set_attributes, audio_sets, video_sets, subtitles_sets, s
     all_video_tracks     = sum(video_sets.values(),     [])
     all_subtitles_tracks = sum(subtitles_sets.values(), [])
 
-    master_playlist_file = open(path.join(options.output_dir, options.hls_master_playlist_name), 'w+');
+    master_playlist_file = open(path.join(options.output_dir, options.hls_master_playlist_name), 'wb+')
     master_playlist_file.write('#EXTM3U\r\n')
     master_playlist_file.write('# Created with Bento4 mp4-dash.py, VERSION=' + VERSION + '-' + SDK_REVISION+'\r\n')
     master_playlist_file.write('#\r\n')
@@ -752,6 +750,7 @@ def OutputHls(options, set_attributes, audio_sets, video_sets, subtitles_sets, s
 
     master_playlist_file.write('\r\n')
     master_playlist_file.write('# Video\r\n')
+    iframe_playlist_lines = []
     for video_track in all_video_tracks:
         if options.on_demand or not options.split:
             media_subdir          = ''
@@ -791,20 +790,48 @@ def OutputHls(options, set_attributes, audio_sets, video_sets, subtitles_sets, s
         OutputHlsTrack(options, video_track, media_subdir, media_playlist_name, media_file_name)
         OutputHlsIframeIndex(options, video_track, media_subdir, iframes_playlist_name, media_file_name)
 
-    master_playlist_file.write('\r\n# I-Frame Playlists\r\n')
-    for video_track in all_video_tracks:
-        master_playlist_file.write('#EXT-X-I-FRAME-STREAM-INF:AVERAGE-BANDWIDTH=%d,BANDWIDTH=%d,CODECS="%s",RESOLUTION=%dx%d,URI="%s"\r\n' % (
-                                   video_track.average_segment_bitrate,
-                                   video_track.max_segment_bitrate,
-                                   video_track.codec,
-                                   video_track.width,
-                                   video_track.height,
-                                   media_playlist_path))
+        # this will be written later
+        iframe_playlist_lines.append('#EXT-X-I-FRAME-STREAM-INF:AVERAGE-BANDWIDTH=%d,BANDWIDTH=%d,CODECS="%s",RESOLUTION=%dx%d,URI="%s"\r\n' % (
+                                     video_track.average_segment_bitrate,
+                                     video_track.max_segment_bitrate,
+                                     video_track.codec,
+                                     video_track.width,
+                                     video_track.height,
+                                     media_playlist_path))
 
+    master_playlist_file.write('\r\n# I-Frame Playlists\r\n')
+    master_playlist_file.write(''.join(iframe_playlist_lines))
+
+    # IMSC1 subtitles
+    if len(all_subtitles_tracks):
+        master_playlist_file.write('\r\n# Subtitles (IMSC1)\r\n')
+        for subtitles_track in all_subtitles_tracks:
+            if subtitles_track.codec != 'stpp':
+                # only accept IMSC1 tracks
+                continue
+            language = subtitles_track.language.decode('utf-8')
+            language_name = LanguageNames.get(language, language).decode('utf-8')
+            
+            if options.on_demand or not options.split:
+                media_subdir        = ''
+                media_file_name     = subtitles_track.parent.media_name
+                media_playlist_name = subtitles_track.representation_id+".m3u8"
+                media_playlist_path = media_playlist_name
+            else:
+                media_subdir        = subtitles_track.representation_id
+                media_file_name     = ''
+                media_playlist_name = options.hls_media_playlist_name
+                media_playlist_path = media_subdir+'/'+media_playlist_name
+
+            master_playlist_file.write('#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="imsc1",NAME="{0:s}",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="{1:s}",URI="{2:s}"\r\n'
+                                       .format(language_name, language, media_playlist_path))
+            
+    # WebVTT subtitles
     if len(subtitles_files):
-        master_playlist_file.write('# Subtitles\r\n')
+        master_playlist_file.write('\r\n# Subtitles (WebVTT)\r\n')
         for subtitles_file in subtitles_files:
-            master_playlist_file.write('''#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="{0:s}",DEFAULT=NO,AUTOSELECT=YES,FORCED=YES,LANGUAGE="{0:s}",URI="subtitles/{0:s}/{1:s}"\r\n'''.format(subtitles_file.language,subtitles_file.media_name))
+            master_playlist_file.write('#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="{0:s}",DEFAULT=NO,AUTOSELECT=YES,FORCED=YES,LANGUAGE="{0:s}",URI="subtitles/{0:s}/{1:s}"\r\n'
+                                       .format(subtitles_file.language,subtitles_file.media_name))
 
 #############################################
 def OutputSmooth(options, audio_tracks, video_tracks):

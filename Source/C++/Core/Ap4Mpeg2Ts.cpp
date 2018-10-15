@@ -408,6 +408,10 @@ AP4_Mpeg2TsAudioSampleStream::WriteSample(AP4_Sample&            sample,
                                           bool                   with_pcr, 
                                           AP4_ByteStream&        output)
 {
+    if (!sample_description) {
+        return AP4_ERROR_INVALID_PARAMETERS;
+    }
+
     // check the sample description
     if (sample_description->GetFormat() == AP4_SAMPLE_FORMAT_MP4A) {
         AP4_MpegAudioSampleDescription* audio_desc = AP4_DYNAMIC_CAST(AP4_MpegAudioSampleDescription, sample_description);
@@ -441,7 +445,8 @@ AP4_Mpeg2TsAudioSampleStream::WriteSample(AP4_Sample&            sample,
         WritePES(buffer, 7+sample.GetSize(), ts, false, ts, with_pcr, output);
         delete[] buffer;
     } else if (sample_description->GetFormat() == AP4_SAMPLE_FORMAT_AC_3 ||
-               sample_description->GetFormat() == AP4_SAMPLE_FORMAT_EC_3) {
+               sample_description->GetFormat() == AP4_SAMPLE_FORMAT_EC_3 ||
+               sample_description->GetFormat() == AP4_SAMPLE_FORMAT_AC_4) {
         AP4_UI64 ts = AP4_ConvertTime(sample.GetDts(), m_TimeScale, 90000);
         WritePES(sample_data.GetData(), sample_data.GetDataSize(), ts, false, ts, with_pcr, output);
     } else {
@@ -521,6 +526,10 @@ AP4_Mpeg2TsVideoSampleStream::WriteSample(AP4_Sample&            sample,
                                           bool                   with_pcr, 
                                           AP4_ByteStream&        output)
 {
+    if (!sample_description) {
+        return AP4_ERROR_INVALID_PARAMETERS;
+    }
+    
     if (sample_description->GetType() == AP4_SampleDescription::TYPE_AVC) {
         // check the sample description
         AP4_AvcSampleDescription* avc_desc = AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, sample_description);
@@ -660,6 +669,7 @@ AP4_Mpeg2TsVideoSampleStream::WriteSample(AP4_Sample&            sample,
         
         // check if we need to add a delimiter before the NALU
         if (nalu_count == 0 && sample_description->GetType() == AP4_SampleDescription::TYPE_AVC) {
+            if (data_size < 1) break;
             if (/* nalu_size != 2 || */ (data[0] & 0x1F) != AP4_AVC_NAL_UNIT_TYPE_ACCESS_UNIT_DELIMITER) {
                 // the first NAL unit is not an Access Unit Delimiter, we need to add one
                 unsigned char delimiter[6];

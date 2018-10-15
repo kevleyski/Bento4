@@ -178,7 +178,7 @@ LanguageNames = {
     "rm": 'Rumantsch Grischun',
     "rn": 'Rundi',
     "ro": 'Rom\xc3\xa2n\xc4\x83',
-    "ru": '\xd1\x80\xd1\x83\xd1\x81\xd1\x81\xd0\xba\xd0\xb8\xd0\xb9 \xd1\x8f\xd0\xb7\xd1\x8b\xd0\xba',
+    "ru": '\xd0\xa0\xd1\x83\xd1\x81\xd1\x81\xd0\xba\xd0\xb8\xd0\xb9',
     "rw": 'Ikinyarwanda',
     "sa": '\xe0\xa4\xb8\xe0\xa4\x82\xe0\xa4\xb8\xe0\xa5\x8d\xe0\xa4\x95\xe0\xa5\x83\xe0\xa4\xa4\xe0\xa4\xae\xe0\xa5\x8d',
     "sc": 'Sardu',
@@ -304,7 +304,7 @@ def Mp42Hls(options, input_filename, *args, **kwargs):
 
 def Mp4IframIndex(options, input_filename, *args, **kwargs):
     return Bento4Command(options, 'mp4iframeindex', input_filename, *args, **kwargs)
-    
+
 class Mp4Atom:
     def __init__(self, type, size, position):
         self.type     = type
@@ -550,6 +550,7 @@ class Mp4File:
         for atom in self.tree:
             segment_size += atom['size']
             if atom['name'] == 'moof':
+                segment_size = atom['size']
                 trafs = FilterChildren(atom, 'traf')
                 if len(trafs) != 1:
                     PrintErrorAndExit('ERROR: unsupported input file, more than one "traf" box in fragment')
@@ -578,7 +579,6 @@ class Mp4File:
                 # remove the 'trun' entries to save some memory
                 for traf in trafs:
                     traf['children'] = [x for x in traf['children'] if x['name'] != 'trun']
-
             elif atom['name'] == 'mdat':
                 # end of fragment on 'mdat' atom
                 if track:
@@ -696,7 +696,7 @@ def ComputeBandwidth(buffer_time, sizes, durations):
             accu_size     += sizes[j]
             accu_duration += durations[j]
             max_avail = buffer_size+accu_duration*bandwidth/8.0
-            if accu_size > max_avail:
+            if accu_size > max_avail and accu_duration != 0:
                 bandwidth = 8.0*(accu_size-buffer_size)/accu_duration
                 break
     return int(bandwidth)
@@ -893,6 +893,17 @@ def ComputeDolbyDigitalAudioChannelConfig(track):
         if channel in flags:
             config |= flags[channel]
     return hex(config).upper()[2:]
+
+def ComputeDolbyAc4AudioChannelConfig(track):
+    sample_desc = track.info['sample_descriptions'][0]
+    if 'dolby_ac4_info' in sample_desc:
+        dolby_ac4_info = sample_desc['dolby_ac4_info']
+        if 'presentations' in dolby_ac4_info and dolby_ac4_info['presentations']:
+            presentation = dolby_ac4_info['presentations'][0]
+            if 'presentation_channel_mask_v1' in presentation:
+                return '%06x' % presentation['presentation_channel_mask_v1']
+
+    return '000000'
 
 def ComputeDolbyDigitalAudioChannelMask(track):
     masks = {

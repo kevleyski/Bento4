@@ -184,6 +184,9 @@ ReadSample(SampleReader&   reader,
             return result;
         }
     }
+    if (sample_data.GetDataSize() == 0) {
+        return AP4_ERROR_INVALID_FORMAT;
+    }
     ts = (double)sample.GetDts()/(double)track.GetMediaTimeScale();
     
     return AP4_SUCCESS;
@@ -593,10 +596,14 @@ main(int argc, char** argv)
         if (sample_description->GetFormat() == AP4_SAMPLE_FORMAT_AVC1 ||
             sample_description->GetFormat() == AP4_SAMPLE_FORMAT_AVC2 ||
             sample_description->GetFormat() == AP4_SAMPLE_FORMAT_AVC3 ||
-            sample_description->GetFormat() == AP4_SAMPLE_FORMAT_AVC4) {
+            sample_description->GetFormat() == AP4_SAMPLE_FORMAT_AVC4 ||
+            sample_description->GetFormat() == AP4_SAMPLE_FORMAT_DVAV ||
+            sample_description->GetFormat() == AP4_SAMPLE_FORMAT_DVA1) {
             stream_type = AP4_MPEG2_STREAM_TYPE_AVC;
         } else if (sample_description->GetFormat() == AP4_SAMPLE_FORMAT_HEV1 ||
-                   sample_description->GetFormat() == AP4_SAMPLE_FORMAT_HVC1) {
+                   sample_description->GetFormat() == AP4_SAMPLE_FORMAT_HVC1 ||
+                   sample_description->GetFormat() == AP4_SAMPLE_FORMAT_DVHE ||
+                   sample_description->GetFormat() == AP4_SAMPLE_FORMAT_DVH1) {
             stream_type = AP4_MPEG2_STREAM_TYPE_HEVC;
         } else {
             fprintf(stderr, "ERROR: video codec not supported\n");
