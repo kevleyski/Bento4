@@ -87,6 +87,7 @@ AP4_StsdAtom::AP4_StsdAtom(AP4_UI32         size,
                            AP4_AtomFactory& atom_factory) :
     AP4_ContainerAtom(AP4_ATOM_TYPE_STSD, size, false, version, flags)
 {
+    if (size < AP4_FULL_ATOM_HEADER_SIZE + 4) return;
     // read the number of entries
     AP4_UI32 entry_count;
     stream.ReadUI32(entry_count);
@@ -213,7 +214,7 @@ AP4_StsdAtom::GetSampleDescriptionCount()
 AP4_Result
 AP4_StsdAtom::InspectFields(AP4_AtomInspector& inspector)
 {
-    inspector.AddField("entry-count", m_Children.ItemCount());
+    inspector.AddField("entry_count", m_Children.ItemCount());
     
     // inspect children
     m_Children.Apply(AP4_AtomListInspector(inspector));

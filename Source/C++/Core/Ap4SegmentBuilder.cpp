@@ -241,14 +241,14 @@ AP4_VideoSegmentBuilder::SortSamples(SampleOrder* array, unsigned int n)
 }
 
 /*----------------------------------------------------------------------
-|   AP4_VideoSegmentBuilder::WriteInitSegment
+|   AP4_VideoSegmentBuilder::WriteVideoInitSegment
 +---------------------------------------------------------------------*/
 AP4_Result
-AP4_VideoSegmentBuilder::WriteInitSegment(AP4_ByteStream&        stream,
-                                          AP4_SampleDescription* sample_description,
-                                          unsigned int           width,
-                                          unsigned int           height,
-                                          AP4_UI32               brand)
+AP4_VideoSegmentBuilder::WriteVideoInitSegment(AP4_ByteStream&        stream,
+                                               AP4_SampleDescription* sample_description,
+                                               unsigned int           width,
+                                               unsigned int           height,
+                                               AP4_UI32               brand)
 {
     // create the output file object
     AP4_Movie* output_movie = new AP4_Movie(AP4_SEGMENT_BUILDER_DEFAULT_TIMESCALE);
@@ -294,7 +294,7 @@ AP4_VideoSegmentBuilder::WriteInitSegment(AP4_ByteStream&        stream,
     brands.Append(AP4_FILE_BRAND_ISOM);
     brands.Append(AP4_FILE_BRAND_MP42);
     brands.Append(AP4_FILE_BRAND_MP41);
-    brands.Append(AP4_FILE_BRAND_HVC1);
+    brands.Append(brand);
 
     AP4_FtypAtom* ftyp = new AP4_FtypAtom(AP4_FILE_BRAND_MP42, 1, &brands[0], brands.ItemCount());
     ftyp->Write(stream);
@@ -483,15 +483,18 @@ AP4_AvcSegmentBuilder::WriteInitSegment(AP4_ByteStream& stream)
                                                 sps->constraint_set2_flag<<5 |
                                                 sps->constraint_set3_flag<<4),
                                      4,
+                                     sps->chroma_format_idc,
+                                     sps->bit_depth_luma_minus8,
+                                     sps->bit_depth_chroma_minus8,
                                      sps_array,
                                      pps_array);
 
     // let the base class finish the work
-    return AP4_VideoSegmentBuilder::WriteInitSegment(stream,
-                                                     sample_description,
-                                                     video_width,
-                                                     video_height,
-                                                     AP4_FILE_BRAND_AVC1);
+    return AP4_VideoSegmentBuilder::WriteVideoInitSegment(stream,
+                                                          sample_description,
+                                                          video_width,
+                                                          video_height,
+                                                          AP4_FILE_BRAND_AVC1);
 }
 
 /*----------------------------------------------------------------------
@@ -655,11 +658,11 @@ AP4_HevcSegmentBuilder::WriteInitSegment(AP4_ByteStream& stream)
                                       parameters_completeness);
 
     // let the base class finish the work
-    return AP4_VideoSegmentBuilder::WriteInitSegment(stream,
-                                                     sample_description,
-                                                     video_width,
-                                                     video_height,
-                                                     AP4_FILE_BRAND_HVC1);
+    return AP4_VideoSegmentBuilder::WriteVideoInitSegment(stream,
+                                                          sample_description,
+                                                          video_width,
+                                                          video_height,
+                                                          AP4_FILE_BRAND_HVC1);
 }
 
 /*----------------------------------------------------------------------
