@@ -15,7 +15,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/utils/mp4-dash.py" />
-    <option name="PARAMETERS" value="$PROJECT_DIR$/test/frag.m4s --hls --hls-key-url=/kevs.key --output-dir=$PROJECT_DIR$/test/kevs_cbc --encryption-cenc-scheme=cbcs --encryption-key=deadbeefdeadbeefdeadbeefdeadbeef:deadbeefdeadbeefdeadbeefdeadbeef" />
+    <option name="PARAMETERS" value="$PROJECT_DIR$/test/frag.m4s --hls --hls-key-url=/kevs.key --output-dir=$PROJECT_DIR$/test/kevs_cbc --encryption-cenc-scheme=cbcs --encryption-key=deadbeefdeadbeefdeadbeefdeadbeef:deadbeefdeadbeefdeadbeefdeadbeef --eme-signaling=pssh-v1" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

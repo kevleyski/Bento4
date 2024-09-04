@@ -740,7 +740,7 @@ def OutputHlsCommon(options, track, all_tracks, media_subdir, playlist_name, med
             key_lines.append('URI="'+options.hls_key_url+'",IV=0x'+track.key_info['iv'])
 
         for key_line in key_lines:
-            playlist_file.write('#EXT-X-KEY:METHOD=SAMPLE-AES,'+key_line+'\n')
+            playlist_file.write('#EXT-X-KEY:METHOD=AES-128,'+key_line+'\n')
 
     return playlist_file
 
